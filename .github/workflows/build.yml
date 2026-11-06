@@ -16,17 +16,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: blender/blender
-          # Указываем официальный хост, если actions/checkout по умолчанию смотрит на GitHub
           github-server-url: https://projects.blender.org
           ref: v5.2.0
-          lfs: false        # Отключаем LFS на случай, если тег содержит бинарники, отсутствующие на публичных серверах
+          lfs: false
           submodules: recursive
 
       - name: Setup MSVC Environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-          toolset: latest
+          # Убран параметр 'toolset: latest', чтобы корректно инициализировать компилятор на Windows Server 2025
 
       - name: Setup Python
         uses: actions/setup-python@v5
