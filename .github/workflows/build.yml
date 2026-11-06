@@ -9,8 +9,8 @@ on:
 
 jobs:
   build:
-    # Используем образ с Visual Studio 2022, чтобы генератор "Visual Studio 17 2022" работал корректно
-    runs-on: windows-2025
+    # Возвращаем образ windows-2022, на котором гарантированно установлена Visual Studio 2022 (VS 17)
+    runs-on: windows-2022
 
     steps:
       - name: Checkout Official Blender Repository
