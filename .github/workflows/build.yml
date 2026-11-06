@@ -77,10 +77,16 @@ jobs:
           cd build
           cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
 
+      - name: Package Blender Installation
+        shell: cmd
+        run: |
+          cd build
+          cmake --install . --config Release --prefix install_output
+
       - name: Archive Blender Build to ZIP
         shell: pwsh
         run: |
-          Compress-Archive -Path "build/bin/Release/*" -DestinationPath "blender_5.2_lts_win64.zip" -Force
+          Compress-Archive -Path "build/install_output/*" -DestinationPath "blender_5.2_lts_win64.zip" -Force
 
       - name: Generate Release Notes
         shell: pwsh
@@ -103,7 +109,7 @@ jobs:
           
           ### Technical Details
           - Built directly from official Blender source code repository (`projects.blender.org`).
-          - Fully optimized Release configuration with parallel compilation enabled.
+          - Fully packaged release including Python, scripts, and dependencies.
           
           ---
           *To install, simply download the `blender_5.2_lts_win64.zip` archive from this release assets and extract it to any folder.*
