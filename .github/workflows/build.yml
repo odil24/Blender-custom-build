@@ -1,4 +1,4 @@
-name: Build Blender from Official Source
+name: Build Blender with VS 2022
 
 on:
   push:
@@ -9,7 +9,8 @@ on:
 
 jobs:
   build:
-    runs-on: windows-2025-vs2026
+    # Используем образ с Visual Studio 2022, чтобы генератор "Visual Studio 17 2022" работал корректно
+    runs-on: windows-2025
 
     steps:
       - name: Checkout Official Blender Repository
@@ -25,7 +26,6 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-          # Убран параметр 'toolset: latest', чтобы корректно инициализировать компилятор на Windows Server 2025
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -45,11 +45,12 @@ jobs:
               Write-Host "Не найден стандартный скрипт инициализации, проверьте структуру репозитория."
           }
 
-      - name: Generate Project Files with CMake
+      - name: Generate Project Files with CMake (VS 2022)
         shell: cmd
         run: |
           mkdir build
           cd build
+          :: Строгое использование Visual Studio 17 2022 согласно официальной документации
           cmake .. -G "Visual Studio 17 2022" -A x64
 
       - name: Build Blender (Release)
