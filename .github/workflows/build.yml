@@ -1,15 +1,13 @@
-name: Build Blender with VS 2022
+name: Build Custom Blender (Manual Patches)
 
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
-    # Возвращаем образ windows-2022, на котором гарантированно установлена Visual Studio 2022 (VS 17)
     runs-on: windows-2022
 
     steps:
@@ -21,6 +19,27 @@ jobs:
           ref: v5.2.0
           lfs: false
           submodules: recursive
+
+      - name: Checkout My Custom Patches Repository
+        uses: actions/checkout@v4
+        with:
+          repository: odil24/Blender-custom-build
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: temp_my_repo
+
+      - name: Apply Custom Patches over Blender
+        shell: pwsh
+        run: |
+          Write-Host "Checking patch folder..."
+          $patchFolder = "temp_my_repo/my_patches"
+          
+          if (Test-Path $patchFolder) {
+              Write-Host "Copying and overwriting files over Blender..."
+              Copy-Item -Path "$patchFolder/*" -Destination "." -Recurse -Force
+              Write-Host "Custom files successfully applied!"
+          } else {
+              Write-Host "my_patches folder not found. Building without patches."
+          }
 
       - name: Setup MSVC Environment
         uses: ilammy/msvc-dev-cmd@v1
@@ -35,14 +54,14 @@ jobs:
       - name: Initialize Build Environment & Dependencies
         shell: pwsh
         run: |
-          Write-Host "Запуск скрипта обновления зависимостей Blender..."
+          Write-Host "Running Blender dependencies update script..."
           if (Test-Path "build_files/utils/make_update.py") {
               python build_files/utils/make_update.py
           } elseif (Test-Path "build_files\build_environment") {
               Set-Location "build_files\build_environment"
               python windows_install_deps.py
           } else {
-              Write-Host "Не найден стандартный скрипт инициализации, проверьте структуру репозитория."
+              Write-Host "Standard initialization script not found, check repository structure."
           }
 
       - name: Generate Project Files with CMake (VS 2022)
@@ -50,7 +69,6 @@ jobs:
         run: |
           mkdir build
           cd build
-          :: Строгое использование Visual Studio 17 2022 согласно официальной документации
           cmake .. -G "Visual Studio 17 2022" -A x64
 
       - name: Build Blender (Release)
@@ -58,3 +76,47 @@ jobs:
         run: |
           cd build
           cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
+
+      - name: Archive Blender Build to ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "build/bin/Release/*" -DestinationPath "blender_5.2_lts_win64.zip" -Force
+
+      - name: Generate Release Notes
+        shell: pwsh
+        run: |
+          $date = Get-Date -Format "yyyy-MM-dd HH:mm"
+          @"
+          # Blender 5.2 LTS - Custom Build Release Notes
+          
+          - **Version:** v5.2.0 (LTS)
+          - **Build Number:** ${{ github.run_number }}
+          - **Release Date:** $date
+          - **Platform:** Windows x64
+          - **Compiler:** Visual Studio 17 2022 (MSVC)
+          
+          ## What's New & Changes
+          
+          ### Added / Modified
+          - Integrated custom modifications and patches from `my_patches` folder (`odil24/Blender-custom-build`).
+          - Applied code overrides for specific source files prior to compilation.
+          
+          ### Technical Details
+          - Built directly from official Blender source code repository (`projects.blender.org`).
+          - Fully optimized Release configuration with parallel compilation enabled.
+          
+          ---
+          *To install, simply download the `blender_5.2_lts_win64.zip` archive from this release assets and extract it to any folder.*
+          "@ | Out-File -FilePath "Release-notes.md" -Encoding utf8
+
+      - name: Upload to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v5.2.0-custom-${{ github.run_number }}
+          name: Blender 5.2 LTS Custom Build #${{ github.run_number }}
+          files: |
+            blender_5.2_lts_win64.zip
+            Release-notes.md
+          body: "Automated custom build of Blender 5.2 LTS with user patches. Please check the attached Release-notes.md file for full details."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
