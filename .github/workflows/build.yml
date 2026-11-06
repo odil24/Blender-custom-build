@@ -13,12 +13,13 @@ jobs:
           choco install ninja -y
         shell: powershell
 
-      - name: Checkout Blender Source & Submodules (Libraries)
+      - name: Checkout Blender Source & Submodules (with Git LFS)
         uses: actions/checkout@v4
         with:
           repository: blender/blender
           ref: v5.2.0
           submodules: recursive
+          lfs: true # КРИТИЧНО: включаем загрузку больших файлов (LFS)
           path: blender
 
       - name: Install CUDA Toolkit
@@ -27,11 +28,11 @@ jobs:
         with:
           cuda: '12.2.0'
 
-      - name: Configure CMake
+      - name: Configure CMake (MSVC / Visual Studio 2022)
         run: |
           mkdir build
           cd build
-          cmake .. -G "Ninja" ^
+          cmake .. -G "Visual Studio 17 2022" -A x64 ^
             -DWITH_CYCLES_CUDA_BINARIES=ON ^
             -DWITH_BUILD_INFO=ON ^
             -DWITH_PYTHON_INSTALL=OFF
@@ -41,7 +42,7 @@ jobs:
       - name: Build Blender
         run: |
           cd build
-          ninja
+          cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
         working-directory: ./blender
         shell: cmd
 
@@ -49,4 +50,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: blender-5.2-windows-x64-cuda
-          path: blender/build/bin/
+          path: blender/build/bin/Release/
