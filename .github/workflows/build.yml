@@ -1,16 +1,19 @@
 name: Build Blender 5.2 Win64 CUDA
 
 on:
-  workflow_dispatch: # Позволяет запускать сборку вручную одной кнопкой
+  workflow_dispatch:
 
 jobs:
   build-windows:
     runs-on: windows-latest
     
     steps:
-      - name: Install Dependencies (SVN & Ninja)
+      - name: Install Dependencies (SVN & Ninja via Chocolatey)
         run: |
           choco install svn ninja -y
+          # Принудительно добавляем пути к установленным утилитам в PATH для текущего пайплайна
+          echo "C:\Program Files\TortoiseSVN\bin" >> $env:GITHUB_PATH
+          echo "C:\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
         shell: powershell
 
       - name: Checkout Blender Source
@@ -57,3 +60,4 @@ jobs:
         with:
           name: blender-5.2-windows-x64-cuda
           path: blender/build/bin/
+          
