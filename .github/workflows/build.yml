@@ -11,9 +11,6 @@ jobs:
       - name: Install Dependencies (SVN & Ninja via Chocolatey)
         run: |
           choco install svn ninja -y
-          # Принудительно добавляем пути к установленным утилитам в PATH для текущего пайплайна
-          echo "C:\Program Files\TortoiseSVN\bin" >> $env:GITHUB_PATH
-          echo "C:\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
         shell: powershell
 
       - name: Checkout Blender Source
@@ -27,7 +24,8 @@ jobs:
       - name: Checkout Blender Libraries
         run: |
           mkdir lib
-          svn checkout https://svn.blender.org/svnroot/bf-blender/trunk/lib/win64_vc17 lib/win64_vc17
+          # Используем полный путь к svn.exe, куда его устанавливает Chocolatey
+          "C:\Program Files (x86)\Subversion\bin\svn.exe" checkout https://svn.blender.org/svnroot/bf-blender/trunk/lib/win64_vc17 lib/win64_vc17
         working-directory: ./blender
         shell: cmd
 
@@ -60,4 +58,3 @@ jobs:
         with:
           name: blender-5.2-windows-x64-cuda
           path: blender/build/bin/
-          
