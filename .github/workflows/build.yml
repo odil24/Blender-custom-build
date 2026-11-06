@@ -1,53 +1,59 @@
-name: Build Blender 5.2 Win64 CUDA
+name: Build Blender Windows
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch: # Позволяет запускать сборку вручную из интерфейса GitHub Actions
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
-    
-    steps:
-      - name: Install Ninja via Chocolatey
-        run: |
-          choco install ninja -y
-        shell: powershell
+  build:
+    runs-on: windows-2025-vs2026
 
-      - name: Checkout Blender Source & Submodules (with Git LFS)
+    steps:
+      - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           repository: blender/blender
           ref: v5.2.0
+          lfs: false        # Отключено во избежание ошибок 404, если LFS-файлы тега отсутствуют на публичном сервере
           submodules: recursive
-          lfs: true # КРИТИЧНО: включаем загрузку больших файлов (LFS)
-          path: blender
 
-      - name: Install CUDA Toolkit
-        uses: Jimver/cuda-toolkit@v0.2.36
-        id: cuda-toolkit
+      - name: Setup MSVC Environment
+        uses: ilammy/msvc-dev-cmd@v1
         with:
-          cuda: '12.2.0'
+          arch: x64
+          toolset: latest
 
-      - name: Configure CMake (MSVC / Visual Studio 2022)
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Initialize Blender Build Environment & Dependencies
+        shell: pwsh
         run: |
+          Write-Host "Запуск подготовки зависимостей Blender..."
+          # Blender использует python-скрипт update.py или make.py для загрузки библиотек и настройки
+          if (Test-Path "build_files\build_environment") {
+              Set-Location "build_files\build_environment"
+              python windows_install_deps.py
+          } else {
+              # Альтернативный путь для актуальных версий
+              python build_files/utils/make_update.py
+          }
+
+      - name: Generate Project Files with CMake
+        shell: cmd
+        run: |
+          # Создание папки сборки и генерация решения
           mkdir build
           cd build
-          cmake .. -G "Visual Studio 17 2022" -A x64 ^
-            -DWITH_CYCLES_CUDA_BINARIES=ON ^
-            -DWITH_BUILD_INFO=ON ^
-            -DWITH_PYTHON_INSTALL=OFF
-        working-directory: ./blender
-        shell: cmd
+          cmake .. -G "Visual Studio 17 2022" -A x64
 
       - name: Build Blender
+        shell: cmd
         run: |
           cd build
           cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
-        working-directory: ./blender
-        shell: cmd
-
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: blender-5.2-windows-x64-cuda
-          path: blender/build/bin/Release/
