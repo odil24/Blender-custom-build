@@ -1,0 +1,59 @@
+name: Build Blender 5.2 Win64 CUDA
+
+on:
+  workflow_dispatch: # Позволяет запускать сборку вручную одной кнопкой
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Install Dependencies (SVN & Ninja)
+        run: |
+          choco install svn ninja -y
+        shell: powershell
+
+      - name: Checkout Blender Source
+        uses: actions/checkout@v4
+        with:
+          repository: blender/blender
+          ref: v5.2.0
+          submodules: recursive
+          path: blender
+
+      - name: Checkout Blender Libraries
+        run: |
+          mkdir lib
+          svn checkout https://svn.blender.org/svnroot/bf-blender/trunk/lib/win64_vc17 lib/win64_vc17
+        working-directory: ./blender
+        shell: cmd
+
+      - name: Install CUDA Toolkit
+        uses: Jimver/cuda-toolkit@v0.2.36
+        id: cuda-toolkit
+        with:
+          cuda: '12.2.0'
+
+      - name: Configure CMake
+        run: |
+          mkdir build
+          cd build
+          cmake .. -G "Ninja" ^
+            -DWITH_CYCLES_CUDA_BINARIES=ON ^
+            -DWITH_BUILD_INFO=ON ^
+            -DWITH_PYTHON_INSTALL=OFF
+        working-directory: ./blender
+        shell: cmd
+
+      - name: Build Blender
+        run: |
+          cd build
+          ninja
+        working-directory: ./blender
+        shell: cmd
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: blender-5.2-windows-x64-cuda
+          path: blender/build/bin/
