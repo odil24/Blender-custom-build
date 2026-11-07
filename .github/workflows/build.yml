@@ -1,4 +1,4 @@
-name: Build Custom Blender (Manual Patches)
+name: Build Custom Blender (Full Official Features)
 
 on:
   workflow_dispatch:
@@ -46,6 +46,13 @@ jobs:
         with:
           arch: x64
 
+      - name: Setup CUDA Toolkit
+        uses: Jimver/cuda-toolkit@v0.2.36
+        id: cuda-toolkit
+        with:
+          cuda: '12.1.0'
+          exit-on-failure: true
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -69,7 +76,13 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake .. -G "Visual Studio 17 2022" -A x64
+          cmake .. -G "Visual Studio 17 2022" -A x64 ^
+            -C "../build_files/cmake/config/blender_release.cmake" ^
+            -DWITH_CYCLES_CUDA_BINARIES=ON ^
+            -DWITH_CYCLES_DEVICE_CUDA=ON ^
+            -DWITH_CYCLES_DEVICE_OPTIX=ON ^
+            -DWITH_CYCLES_DEVICE_HIP=ON ^
+            -DWITH_CYCLES_DEVICE_ONEAPI=ON
 
       - name: Build Blender (Release)
         shell: cmd
@@ -92,9 +105,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v5.2.0-custom-${{ github.run_number }}
-          name: Blender 5.2 LTS  #${{ github.run_number }}
+          name: Blender 5.2 LTS Custom Build #${{ github.run_number }}
           files: |
             blender-5.2-LTS-windows-x64.zip
-          body: "Automated custom build of Blender 5.2 LTS with user patches"
+          body: "Automated custom build of Blender 5.2 LTS with user patches and full GPU rendering support (CUDA, OptiX, HIP, oneAPI)."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
