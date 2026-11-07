@@ -86,43 +86,15 @@ jobs:
       - name: Archive Blender Build to ZIP
         shell: pwsh
         run: |
-          Compress-Archive -Path "build/install_output/*" -DestinationPath "blender_5.2_lts_win64.zip" -Force
-
-      - name: Generate Release Notes
-        shell: pwsh
-        run: |
-          $date = Get-Date -Format "yyyy-MM-dd HH:mm"
-          @"
-          # Blender 5.2 LTS - Custom Build Release Notes
-          
-          - **Version:** v5.2.0 (LTS)
-          - **Build Number:** ${{ github.run_number }}
-          - **Release Date:** $date
-          - **Platform:** Windows x64
-          - **Compiler:** Visual Studio 17 2022 (MSVC)
-          
-          ## What's New & Changes
-          
-          ### Added / Modified
-          - Integrated custom modifications and patches from `my_patches` folder (`odil24/Blender-custom-build`).
-          - Applied code overrides for specific source files prior to compilation.
-          
-          ### Technical Details
-          - Built directly from official Blender source code repository (`projects.blender.org`).
-          - Fully packaged release including Python, scripts, and dependencies.
-          
-          ---
-          *To install, simply download the `blender_5.2_lts_win64.zip` archive from this release assets and extract it to any folder.*
-          "@ | Out-File -FilePath "Release-notes.md" -Encoding utf8
+          Compress-Archive -Path "build/install_output/*" -DestinationPath "blender-5.2-LTS-windows-x64.zip" -Force
 
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v5.2.0-custom-${{ github.run_number }}
-          name: Blender 5.2 LTS Custom Build #${{ github.run_number }}
+          name: Blender 5.2 LTS  #${{ github.run_number }}
           files: |
-            blender_5.2_lts_win64.zip
-            Release-notes.md
-          body: "Automated custom build of Blender 5.2 LTS with user patches. Please check the attached Release-notes.md file for full details."
+            blender-5.2-LTS-windows-x64.zip
+          body: "Automated custom build of Blender 5.2 LTS with user patches"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
