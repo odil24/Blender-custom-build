@@ -90,7 +90,7 @@ jobs:
       - name: Archive Blender Build to ZIP
         shell: pwsh
         run: |
-          Compress-Archive -Path "build/install_output/*" -DestinationPath "blender-5.2-LTS-windows-x64.zip" -Force
+          Compress-Archive -Path "build/install_output/*" -DestinationPath "blender-5.2.4-windows-x64.zip" -Force
 
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
