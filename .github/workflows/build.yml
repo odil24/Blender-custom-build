@@ -61,15 +61,7 @@ jobs:
       - name: Initialize Build Environment & Dependencies
         shell: pwsh
         run: |
-          Write-Host "Running Blender dependencies update script..."
-          if (Test-Path "build_files/utils/make_update.py") {
-              python build_files/utils/make_update.py
-          } elseif (Test-Path "build_files\build_environment") {
-              Set-Location "build_files\build_environment"
-              python windows_install_deps.py
-          } else {
-              Write-Host "Standard initialization script not found, check repository structure."
-          }
+          call make.bat update
 
       - name: Generate Project Files with CMake (VS 2022)
         shell: cmd
