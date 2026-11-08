@@ -59,7 +59,7 @@ jobs:
           python-version: '3.11'
 
       - name: Initialize Build Environment & Dependencies
-        shell: pwsh
+        shell: cmd
         run: |
           call make.bat update
 
