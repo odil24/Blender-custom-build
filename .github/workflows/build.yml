@@ -9,7 +9,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-2022
-    timeout-minutes: 360
+    timeout-minutes: 360 # Защита от бесконечного зависания
 
     steps:
       - name: Checkout Official Blender Repository
@@ -21,20 +21,41 @@ jobs:
           lfs: True
           submodules: recursive
 
+      # ИСПРАВЛЕННЫЙ ШАГ: Чтение общего кода версии и патча
       - name: Extract Blender Version
         shell: pwsh
         run: |
           $headerFile = "source/blender/blenkernel/BKE_blender_version.h"
-          Write-Host "Reading version from $headerFile..."
           
-          $major = (Select-String -Path $headerFile -Pattern '#define BLENDER_VERSION_MAJOR\s+(\d+)').Matches.Groups[1].Value
-          $minor = (Select-String -Path $headerFile -Pattern '#define BLENDER_VERSION_MINOR\s+(\d+)').Matches.Groups[1].Value
-          $patch = (Select-String -Path $headerFile -Pattern '#define BLENDER_VERSION_PATCH\s+(\d+)').Matches.Groups[1].Value
+          if (-not (Test-Path $headerFile)) {
+              Write-Error "Header file not found: $headerFile"
+              exit 1
+          }
+          
+          $content = Get-Content $headerFile -Raw
+          
+          $versionMatch = [regex]::Match($content, '#define\s+BLENDER_VERSION\s+(\d+)')
+          $patchMatch = [regex]::Match($content, '#define\s+BLENDER_VERSION_PATCH\s+(\d+)')
+          
+          if (-not $versionMatch.Success) {
+              Write-Error "Could not find BLENDER_VERSION in $headerFile"
+              exit 1
+          }
+          if (-not $patchMatch.Success) {
+              Write-Error "Could not find BLENDER_VERSION_PATCH in $headerFile"
+              exit 1
+          }
+          
+          $versionCode = [int]$versionMatch.Groups[1].Value
+          # Вычисляем мажорную и минорную версии (например, 502 -> 5.2)
+          $major = [math]::Floor($versionCode / 100)
+          $minor = $versionCode % 100
+          $patch = [int]$patchMatch.Groups[1].Value
           
           $version = "$major.$minor.$patch"
           Write-Host "Detected Blender Version: $version"
           
-          # Сохраняем версию в переменную окружения для следующих шагов
+          # Сохраняем в переменную для следующих шагов
           "BLENDER_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Checkout My Custom Patches Repository
@@ -80,6 +101,7 @@ jobs:
           path: |
             lib
             build
+          # Используем динамическую версию в ключе кэша
           key: ${{ runner.os }}-blender-v${{ env.BLENDER_VERSION }}-${{ hashFiles('build_files/cmake/platform/platform_win32.cmake') }}
           restore-keys: |
             ${{ runner.os }}-blender-v${{ env.BLENDER_VERSION }}-
@@ -118,16 +140,18 @@ jobs:
       - name: Archive Blender Build to ZIP
         shell: pwsh
         run: |
+          # Динамическое имя файла на основе извлеченной версии
           Compress-Archive -Path "build/install_output/*" -DestinationPath "blender-${{ env.BLENDER_VERSION }}-windows-x64.zip" -Force
 
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
+          # Динамический тег и имя релиза
           tag_name: v${{ env.BLENDER_VERSION }}-custom-${{ github.run_number }}
           name: Blender ${{ env.BLENDER_VERSION }} LTS Custom Build #${{ github.run_number }}
           files: |
             blender-${{ env.BLENDER_VERSION }}-windows-x64.zip
           fail_on_unmatched_files: true
-          body: "Blender ${{ env.BLENDER_VERSION }} LTS official with custom patches and full GPU rendering support (CUDA, OptiX, HIP, oneAPI)."
+          body: "Automated custom build of Blender ${{ env.BLENDER_VERSION }} LTS with user patches and full GPU rendering support (CUDA, OptiX, HIP, oneAPI)."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
