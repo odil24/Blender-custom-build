@@ -9,7 +9,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-2022
-    timeout-minutes: 360 # Защита от бесконечного зависания
+    timeout-minutes: 360 
 
     steps:
       - name: Checkout Official Blender Repository
@@ -21,7 +21,6 @@ jobs:
           lfs: True
           submodules: recursive
 
-      # ИСПРАВЛЕННЫЙ ШАГ: Чтение общего кода версии и патча
       - name: Extract Blender Version
         shell: pwsh
         run: |
@@ -33,21 +32,15 @@ jobs:
           }
           
           $content = Get-Content $headerFile -Raw
-          
           $versionMatch = [regex]::Match($content, '#define\s+BLENDER_VERSION\s+(\d+)')
           $patchMatch = [regex]::Match($content, '#define\s+BLENDER_VERSION_PATCH\s+(\d+)')
           
-          if (-not $versionMatch.Success) {
-              Write-Error "Could not find BLENDER_VERSION in $headerFile"
-              exit 1
-          }
-          if (-not $patchMatch.Success) {
-              Write-Error "Could not find BLENDER_VERSION_PATCH in $headerFile"
+          if (-not $versionMatch.Success -or -not $patchMatch.Success) {
+              Write-Error "Could not parse version macros from $headerFile"
               exit 1
           }
           
           $versionCode = [int]$versionMatch.Groups[1].Value
-          # Вычисляем мажорную и минорную версии (например, 502 -> 5.2)
           $major = [math]::Floor($versionCode / 100)
           $minor = $versionCode % 100
           $patch = [int]$patchMatch.Groups[1].Value
@@ -55,7 +48,6 @@ jobs:
           $version = "$major.$minor.$patch"
           Write-Host "Detected Blender Version: $version"
           
-          # Сохраняем в переменную для следующих шагов
           "BLENDER_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Checkout My Custom Patches Repository
@@ -94,6 +86,22 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          
+      - name: Clone OptiX Dev Headers
+        shell: pwsh
+        run: |
+          $optixDevPath = "C:\optix-dev"
+          Write-Host "Cloning NVIDIA optix-dev repository..."
+          # Клонируем конкретную ветку (v8.0.0 совместима с Blender 5.2)
+          git clone --depth 1 --branch v8.0.0 https://github.com/NVIDIA/optix-dev.git $optixDevPath
+          
+          if (Test-Path "$optixDevPath\include") {
+              Write-Host "OptiX headers cloned successfully."
+              "OPTIX_ROOT_DIR=$optixDevPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          } else {
+              Write-Error "Failed to find include directory in cloned optix-dev repo."
+              exit 1
+          }
      
       - name: Cache Blender Dependencies and Build
         uses: actions/cache@v4
@@ -101,7 +109,6 @@ jobs:
           path: |
             lib
             build
-          # Используем динамическую версию в ключе кэша
           key: ${{ runner.os }}-blender-v${{ env.BLENDER_VERSION }}-${{ hashFiles('build_files/cmake/platform/platform_win32.cmake') }}
           restore-keys: |
             ${{ runner.os }}-blender-v${{ env.BLENDER_VERSION }}-
@@ -121,6 +128,7 @@ jobs:
             -DWITH_CYCLES_CUDA_BINARIES=ON ^
             -DWITH_CYCLES_DEVICE_CUDA=ON ^
             -DWITH_CYCLES_DEVICE_OPTIX=ON ^
+            -DOPTIX_ROOT_DIR="${{ env.OPTIX_ROOT_DIR }}" ^
             -DWITH_CYCLES_DEVICE_HIP=ON ^
             -DWITH_CYCLES_DEVICE_ONEAPI=ON ^
             -DCMAKE_CUDA_FLAGS="-allow-unsupported-compiler"
@@ -140,13 +148,11 @@ jobs:
       - name: Archive Blender Build to ZIP
         shell: pwsh
         run: |
-          # Динамическое имя файла на основе извлеченной версии
           Compress-Archive -Path "build/install_output/*" -DestinationPath "blender-${{ env.BLENDER_VERSION }}-windows-x64.zip" -Force
 
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          # Динамический тег и имя релиза
           tag_name: v${{ env.BLENDER_VERSION }}-custom-${{ github.run_number }}
           name: Blender ${{ env.BLENDER_VERSION }} LTS Custom Build #${{ github.run_number }}
           files: |
