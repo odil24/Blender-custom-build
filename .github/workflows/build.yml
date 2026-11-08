@@ -83,7 +83,7 @@ jobs:
             -DWITH_CYCLES_DEVICE_OPTIX=ON ^
             -DWITH_CYCLES_DEVICE_HIP=ON ^
             -DWITH_CYCLES_DEVICE_ONEAPI=ON
-
+            -DCMAKE_CUDA_FLAGS="-allow-unsupported-compiler"
       - name: Build Blender (Release)
         shell: cmd
         run: |
