@@ -9,6 +9,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-2022
+    timeout-minutes: 360
 
     steps:
       - name: Checkout Official Blender Repository
@@ -19,6 +20,22 @@ jobs:
           ref: blender-v5.2-release
           lfs: True
           submodules: recursive
+
+      - name: Extract Blender Version
+        shell: pwsh
+        run: |
+          $headerFile = "source/blender/blenkernel/BKE_blender_version.h"
+          Write-Host "Reading version from $headerFile..."
+          
+          $major = (Select-String -Path $headerFile -Pattern '#define BLENDER_VERSION_MAJOR\s+(\d+)').Matches.Groups[1].Value
+          $minor = (Select-String -Path $headerFile -Pattern '#define BLENDER_VERSION_MINOR\s+(\d+)').Matches.Groups[1].Value
+          $patch = (Select-String -Path $headerFile -Pattern '#define BLENDER_VERSION_PATCH\s+(\d+)').Matches.Groups[1].Value
+          
+          $version = "$major.$minor.$patch"
+          Write-Host "Detected Blender Version: $version"
+          
+          # Сохраняем версию в переменную окружения для следующих шагов
+          "BLENDER_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Checkout My Custom Patches Repository
         uses: actions/checkout@v4
@@ -63,9 +80,9 @@ jobs:
           path: |
             lib
             build
-          key: ${{ runner.os }}-blender-v5.2-${{ hashFiles('build_files/cmake/platform/platform_win32.cmake') }}
+          key: ${{ runner.os }}-blender-v${{ env.BLENDER_VERSION }}-${{ hashFiles('build_files/cmake/platform/platform_win32.cmake') }}
           restore-keys: |
-            ${{ runner.os }}-blender-v5.2-
+            ${{ runner.os }}-blender-v${{ env.BLENDER_VERSION }}-
       
       - name: Initialize Build Environment & Dependencies
         shell: cmd
@@ -75,7 +92,7 @@ jobs:
       - name: Generate Project Files with CMake (VS 2022)
         shell: cmd
         run: |
-          mkdir build
+          if not exist build mkdir build
           cd build
           cmake .. -G "Visual Studio 17 2022" -A x64 ^
             -C "../build_files/cmake/config/blender_release.cmake" ^
@@ -85,6 +102,7 @@ jobs:
             -DWITH_CYCLES_DEVICE_HIP=ON ^
             -DWITH_CYCLES_DEVICE_ONEAPI=ON ^
             -DCMAKE_CUDA_FLAGS="-allow-unsupported-compiler"
+
       - name: Build Blender (Release)
         shell: cmd
         run: |
@@ -100,15 +118,16 @@ jobs:
       - name: Archive Blender Build to ZIP
         shell: pwsh
         run: |
-          Compress-Archive -Path "build/install_output/*" -DestinationPath "blender-5.2.4-windows-x64.zip" -Force
+          Compress-Archive -Path "build/install_output/*" -DestinationPath "blender-${{ env.BLENDER_VERSION }}-windows-x64.zip" -Force
 
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v5.2.0-custom-${{ github.run_number }}
-          name: Blender 5.2 LTS Custom Build #${{ github.run_number }}
+          tag_name: v${{ env.BLENDER_VERSION }}-custom-${{ github.run_number }}
+          name: Blender ${{ env.BLENDER_VERSION }} LTS Custom Build #${{ github.run_number }}
           files: |
-            blender-5.2.4-windows-x64.zip
-          body: "Automated custom build of Blender 5.2 LTS with user patches and full GPU rendering support (CUDA, OptiX, HIP, oneAPI)."
+            blender-${{ env.BLENDER_VERSION }}-windows-x64.zip
+          fail_on_unmatched_files: true
+          body: "Blender ${{ env.BLENDER_VERSION }} LTS official with custom patches and full GPU rendering support (CUDA, OptiX, HIP, oneAPI)."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
