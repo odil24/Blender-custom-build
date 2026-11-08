@@ -9,7 +9,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-2022
-    timeout-minutes: 360 
+    timeout-minutes: 360 # Защита от бесконечного зависания
 
     steps:
       - name: Checkout Official Blender Repository
@@ -21,6 +21,7 @@ jobs:
           lfs: True
           submodules: recursive
 
+      # Автоматическое определение версии Blender
       - name: Extract Blender Version
         shell: pwsh
         run: |
@@ -86,13 +87,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          
+
+      # Клонирование официального репозитория NVIDIA optix-dev
       - name: Clone OptiX Dev Headers
         shell: pwsh
         run: |
           $optixDevPath = "C:\optix-dev"
           Write-Host "Cloning NVIDIA optix-dev repository..."
-          # Клонируем конкретную ветку (v8.0.0 совместима с Blender 5.2)
           git clone --depth 1 --branch v8.0.0 https://github.com/NVIDIA/optix-dev.git $optixDevPath
           
           if (Test-Path "$optixDevPath\include") {
@@ -102,16 +103,6 @@ jobs:
               Write-Error "Failed to find include directory in cloned optix-dev repo."
               exit 1
           }
-     
-      - name: Cache Blender Dependencies and Build
-        uses: actions/cache@v4
-        with:
-          path: |
-            lib
-            build
-          key: ${{ runner.os }}-blender-v${{ env.BLENDER_VERSION }}-${{ hashFiles('build_files/cmake/platform/platform_win32.cmake') }}
-          restore-keys: |
-            ${{ runner.os }}-blender-v${{ env.BLENDER_VERSION }}-
       
       - name: Initialize Build Environment & Dependencies
         shell: cmd
