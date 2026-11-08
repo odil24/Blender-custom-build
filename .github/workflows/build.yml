@@ -16,7 +16,7 @@ jobs:
         with:
           repository: blender/blender
           github-server-url: https://projects.blender.org
-          ref: v5.2.0
+          ref: blender-v5.2-release
           lfs: false
           submodules: recursive
 
@@ -50,7 +50,7 @@ jobs:
         uses: Jimver/cuda-toolkit@v0.2.36
         id: cuda-toolkit
         with:
-          cuda: '12.8'
+          cuda: '12.8.0'
           exit-on-failure: true
 
       - name: Setup Python
