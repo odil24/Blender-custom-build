@@ -56,7 +56,17 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
+     
+      - name: Cache Blender Dependencies and Build
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib
+            build
+          key: ${{ runner.os }}-blender-v5.2-${{ hashFiles('build_files/cmake/platform/platform_win32.cmake') }}
+          restore-keys: |
+            ${{ runner.os }}-blender-v5.2-
+      
       - name: Initialize Build Environment & Dependencies
         shell: cmd
         run: |
