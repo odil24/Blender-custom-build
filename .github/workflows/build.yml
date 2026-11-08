@@ -16,7 +16,7 @@ jobs:
         with:
           repository: blender/blender
           github-server-url: https://projects.blender.org
-          ref: v5.2.0
+          ref: blender-v5.2-release
           lfs: false
           submodules: recursive
 
@@ -32,7 +32,7 @@ jobs:
         run: |
           Write-Host "Checking patch folder..."
           $patchFolder = "temp_my_repo/my_patches"
-          
+
           if (Test-Path $patchFolder) {
               Write-Host "Copying and overwriting files over Blender..."
               Copy-Item -Path "$patchFolder/*" -Destination "." -Recurse -Force
@@ -41,16 +41,28 @@ jobs:
               Write-Host "my_patches folder not found. Building without patches."
           }
 
+      # ── Кэширование build/ и lib/ для ускорения повторных запусков ──
+      - name: Cache Blender Build and Libraries
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            lib
+          key: ${{ runner.os }}-blender-5.2-${{ hashFiles('build_files/cmake/platform/platform_win32.cmake') }}
+          restore-keys: |
+            ${{ runner.os }}-blender-5.2-
+
       - name: Setup MSVC Environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
+          toolset: 14.44.35207
 
       - name: Setup CUDA Toolkit
         uses: Jimver/cuda-toolkit@v0.2.36
         id: cuda-toolkit
         with:
-          cuda: '12.1.0'
+          cuda: '12.8.0'
           exit-on-failure: true
 
       - name: Setup Python
@@ -59,22 +71,14 @@ jobs:
           python-version: '3.11'
 
       - name: Initialize Build Environment & Dependencies
-        shell: pwsh
+        shell: cmd
         run: |
-          Write-Host "Running Blender dependencies update script..."
-          if (Test-Path "build_files/utils/make_update.py") {
-              python build_files/utils/make_update.py
-          } elseif (Test-Path "build_files\build_environment") {
-              Set-Location "build_files\build_environment"
-              python windows_install_deps.py
-          } else {
-              Write-Host "Standard initialization script not found, check repository structure."
-          }
+          call make.bat update
 
       - name: Generate Project Files with CMake (VS 2022)
         shell: cmd
         run: |
-          mkdir build
+          if not exist build mkdir build
           cd build
           cmake .. -G "Visual Studio 17 2022" -A x64 ^
             -C "../build_files/cmake/config/blender_release.cmake" ^
@@ -82,8 +86,8 @@ jobs:
             -DWITH_CYCLES_DEVICE_CUDA=ON ^
             -DWITH_CYCLES_DEVICE_OPTIX=ON ^
             -DWITH_CYCLES_DEVICE_HIP=ON ^
-            -DWITH_CYCLES_DEVICE_ONEAPI=ON ^
-            -DCMAKE_CUDA_FLAGS="-allow-unsupported-compiler"
+            -DWITH_CYCLES_DEVICE_ONEAPI=ON
+
       - name: Build Blender (Release)
         shell: cmd
         run: |
@@ -99,7 +103,7 @@ jobs:
       - name: Archive Blender Build to ZIP
         shell: pwsh
         run: |
-          Compress-Archive -Path "build/install_output/*" -DestinationPath "blender-5.2-LTS-windows-x64.zip" -Force
+          Compress-Archive -Path "build/install_output/*" -DestinationPath "blender-5.2.4-windows-x64.zip" -Force
 
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
