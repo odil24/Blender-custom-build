@@ -17,7 +17,7 @@ jobs:
           repository: blender/blender
           github-server-url: https://projects.blender.org
           ref: blender-v5.2-release
-          lfs: false
+          lfs: True
           submodules: recursive
 
       - name: Checkout My Custom Patches Repository
@@ -61,8 +61,8 @@ jobs:
       - name: Initialize Build Environment & Dependencies
         shell: cmd
         run: |
-          call make.bat update
-
+          echo y| call make.bat update
+          
       - name: Generate Project Files with CMake (VS 2022)
         shell: cmd
         run: |
