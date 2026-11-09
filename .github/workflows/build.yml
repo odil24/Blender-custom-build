@@ -1,4 +1,4 @@
-name: Build Custom Blender (Full Official Features)
+name: Build Custom Blender (Full Official Features, MSVC + Ninja)
 
 on:
   workflow_dispatch:
@@ -72,6 +72,26 @@ jobs:
               Write-Host "my_patches folder not found. Building without patches."
           }
 
+      # -----------------------------------------------------------------------
+      # Ninja больше не предустановлен в windows-2022 (с ~сент. 2023).
+      # Устанавливаем явно через Chocolatey.
+      # -----------------------------------------------------------------------
+      - name: Install Ninja
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
+              Write-Host "Installing Ninja via Chocolatey..."
+              choco install ninja -y --no-progress
+          } else {
+              Write-Host "Ninja already available."
+          }
+          $ninjaPath = (Get-Command ninja).Source
+          Write-Host "Using Ninja at: $ninjaPath"
+          ninja --version
+
+      # -----------------------------------------------------------------------
+      # MSVC-окружение: компилятор cl.exe, линкер, Windows SDK, хост CUDA.
+      # -----------------------------------------------------------------------
       - name: Setup MSVC Environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -103,19 +123,26 @@ jobs:
               Write-Error "Failed to find include directory in cloned optix-dev repo."
               exit 1
           }
-      
+
       - name: Initialize Build Environment & Dependencies
         shell: cmd
         run: |
           echo y| call make.bat update
-          
-      - name: Generate Project Files with CMake (VS 2022)
+
+      # -----------------------------------------------------------------------
+      # CMake + Ninja + MSVC.
+      # Ninja — single-config генератор, поэтому CMAKE_BUILD_TYPE обязателен.
+      # CMAKE_INSTALL_PREFIX задаётся здесь (вместо --prefix при install).
+      # -----------------------------------------------------------------------
+      - name: Generate Project Files with CMake (Ninja + MSVC)
         shell: cmd
         run: |
           if not exist build mkdir build
           cd build
-          cmake .. -G "Visual Studio 17 2022" -A x64 ^
+          cmake .. -G Ninja ^
             -C "../build_files/cmake/config/blender_release.cmake" ^
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_INSTALL_PREFIX=install_output ^
             -DWITH_CYCLES_CUDA_BINARIES=ON ^
             -DWITH_CYCLES_DEVICE_CUDA=ON ^
             -DWITH_CYCLES_DEVICE_OPTIX=ON ^
@@ -124,17 +151,17 @@ jobs:
             -DWITH_CYCLES_DEVICE_ONEAPI=ON ^
             -DCMAKE_CUDA_FLAGS="-allow-unsupported-compiler"
 
-      - name: Build Blender (Release)
+      - name: Build Blender (Release, Ninja)
         shell: cmd
         run: |
           cd build
-          cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
+          ninja
 
       - name: Package Blender Installation
         shell: cmd
         run: |
           cd build
-          cmake --install . --config Release --prefix install_output
+          ninja install
 
       - name: Archive Blender Build to ZIP
         shell: pwsh
@@ -149,6 +176,6 @@ jobs:
           files: |
             blender-${{ env.BLENDER_VERSION }}-windows-x64.zip
           fail_on_unmatched_files: true
-          body: "Automated custom build of Blender ${{ env.BLENDER_VERSION }} LTS with user patches and full GPU rendering support (CUDA, OptiX, HIP, oneAPI)."
+          body: "Automated custom build of Blender ${{ env.BLENDER_VERSION }} LTS with user patches and full GPU rendering support (CUDA, OptiX, HIP, oneAPI). Built with MSVC + Ninja."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
