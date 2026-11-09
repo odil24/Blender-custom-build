@@ -30,6 +30,13 @@ endif()
 # TODO: this code could be refactored a bit to avoid duplication.
 # NOTE: CXX_HAS_SSE42 is needed in case passing SSE flags fails altogether (`gcc-arm`).
 
+# Enable submodule link LTO/IPO
+include(CheckIPOSupported)
+check_ipo_supported(RESULT ipo_supported OUTPUT error)
+if(ipo_supported)
+  set_property(GLOBAL PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
 # Determine vectorization support and required build flags
 if(WITH_CYCLES_NATIVE_ONLY)
   set(CXX_HAS_SSE42 FALSE)
@@ -181,6 +188,9 @@ elseif((CMAKE_C_COMPILER_ID STREQUAL "GNU") OR (CMAKE_CXX_COMPILER_ID MATCHES "C
   # Don't enable `-ffinite-math-only` since the BVH code relies on NaNs.
   # Otherwise, we could just use `-ffast-math`.
 
+  # Безопасная развертка циклов для ускорения обработки лучей и математики
+  list(APPEND CYCLES_MATH_FLAGS "-funroll-loops")
+
   if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     # Assume no signal trapping for better code generation.
     list(APPEND CYCLES_MATH_FLAGS "-fno-signaling-nans")
@@ -278,12 +288,9 @@ endif()
 
 if(WITH_CYCLES_DEVICE_ONEAPI)
   add_definitions(-DWITH_ONEAPI)
-  if(WITH_CYCLES_ONEAPI_SOFTWARE_TEXTURING)
-    add_definitions(-DWITH_CYCLES_ONEAPI_SOFTWARE_TEXTURING)
-  endif()
 endif()
 
-if(WITH_EMBREE)
+if(WITH_CYCLES_EMBREE)
   add_definitions(-DWITH_EMBREE)
   if(WITH_CYCLES_DEVICE_ONEAPI AND EMBREE_SYCL_SUPPORT)
     # NOTE: The debug version of Embree is built without SYCL support on Windows
@@ -312,15 +319,6 @@ endif()
 
 if(WITH_OPENIMAGEDENOISE)
   add_definitions(-DWITH_OPENIMAGEDENOISE)
-endif()
-
-if(WITH_DLSS)
-  find_package(DLSS)
-  if(DLSS_FOUND)
-    add_definitions(-DWITH_DLSS)
-  else()
-    set_and_warn_library_found("DLSS" DLSS_FOUND WITH_DLSS)
-  endif()
 endif()
 
 if(WITH_OPENVDB)
