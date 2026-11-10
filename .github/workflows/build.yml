@@ -9,7 +9,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-2022
-    timeout-minutes: 360 # Защита от бесконечного зависания
+    timeout-minutes: 360 
 
     steps:
       - name: Checkout Official Blender Repository
@@ -21,7 +21,6 @@ jobs:
           lfs: True
           submodules: recursive
 
-      # Автоматическое определение версии Blender
       - name: Extract Blender Version
         shell: pwsh
         run: |
@@ -72,10 +71,6 @@ jobs:
               Write-Host "my_patches folder not found. Building without patches."
           }
 
-      # -----------------------------------------------------------------------
-      # Ninja больше не предустановлен в windows-2022 (с ~сент. 2023).
-      # Устанавливаем явно через Chocolatey.
-      # -----------------------------------------------------------------------
       - name: Install Ninja
         shell: pwsh
         run: |
@@ -89,9 +84,6 @@ jobs:
           Write-Host "Using Ninja at: $ninjaPath"
           ninja --version
 
-      # -----------------------------------------------------------------------
-      # MSVC-окружение: компилятор cl.exe, линкер, Windows SDK, хост CUDA.
-      # -----------------------------------------------------------------------
       - name: Setup MSVC Environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -108,7 +100,6 @@ jobs:
         with:
           python-version: '3.11'
 
-      # Клонирование официального репозитория NVIDIA optix-dev
       - name: Clone OptiX Dev Headers
         shell: pwsh
         run: |
@@ -129,11 +120,6 @@ jobs:
         run: |
           echo y| call make.bat update
 
-      # -----------------------------------------------------------------------
-      # CMake + Ninja + MSVC.
-      # Ninja — single-config генератор, поэтому CMAKE_BUILD_TYPE обязателен.
-      # CMAKE_INSTALL_PREFIX задаётся здесь (вместо --prefix при install).
-      # -----------------------------------------------------------------------
       - name: Generate Project Files with CMake (Ninja + MSVC)
         shell: cmd
         run: |
